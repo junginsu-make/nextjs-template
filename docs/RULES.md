@@ -48,7 +48,7 @@ PRD 작성 → LLD 작성 → PLAN 작성 → GitHub 생성 → 개발 시작
 ```bash
 # GitHub
 Repository: https://github.com/junginsu-make/motion-magic
-Personal Access Token: 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
+Personal Access Token: YOUR_TOKEN_HERE
 
 # Supabase
 Project URL: https://wlgjnlrufrdgxorkicxy.supabase.co
@@ -848,7 +848,7 @@ gh repo create {프로젝트명} \
   --description "프로젝트 설명"
 
 git init
-git remote add origin https://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@github.com/junginsu-make/{프로젝트명}.git
+git remote add origin https://YOUR_TOKEN_HERE@github.com/junginsu-make/{프로젝트명}.git
 
 # 초기 문서 생성
 touch PRD.md LLD.md PLAN.md README.md
@@ -943,7 +943,7 @@ Closes #123
 설명: {한 줄 설명}
 핵심 기능: {1, 2, 3}
 
-GitHub Personal Access Token: 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
+GitHub Personal Access Token: YOUR_TOKEN_HERE
 
 다음 순서로 진행해주세요:
 
@@ -1521,7 +1521,7 @@ RULES.md에 따라 다음 순서로 진행해주세요:
 1. PRD.md 작성
 2. LLD.md 작성
 3. PLAN.md 작성
-4. GitHub 저장소 생성 (Token: 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)
+4. GitHub 저장소 생성 (Token: YOUR_TOKEN_HERE)
 5. 프로젝트 초기화 (Next.js + Drizzle + Supabase)
 
 Supabase 정보:
