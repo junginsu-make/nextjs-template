@@ -1,0 +1,180 @@
+# 프로젝트 규칙 - Cursor AI가 자동으로 읽고 적용합니다
+
+## 🎯 핵심 원칙
+
+### 아키텍처: 헥사고날 (Ports & Adapters)
+- Domain: 순수 비즈니스 로직 (의존성 0)
+- Application: Domain 인터페이스만 호출
+- Infrastructure: Domain 인터페이스 구현
+- Presentation: Application 사용
+- 의존성 방향: 항상 외부 → 내부
+
+### SOLID 원칙
+- S (단일책임): 클래스는 하나의 책임만
+- O (개방폐쇄): 확장에 열려있고, 수정에 닫혀있음
+- L (리스코프): 자식은 부모로 대체 가능
+- I (인터페이스분리): 작은 인터페이스 여러 개
+- D (의존성역전): 인터페이스에 의존
+
+## 🛠️ 기술 스택 (변경 금지)
+- Language: TypeScript 5+
+- Frontend: Next.js 14+ (App Router)
+- Styling: Tailwind CSS 3.4+
+- UI: shadcn/ui + Radix UI
+- Forms: React Hook Form + Zod
+- State: Zustand (client) + TanStack Query (server)
+- Backend: Supabase (Auth, DB, Storage, Realtime)
+- ORM: Drizzle ORM
+- Cache: Upstash Redis
+- Hosting: Vercel
+- Monitoring: Sentry + Vercel Analytics
+
+## 📋 작업 전 체크리스트
+
+매 작업 시작 전 이 4가지 확인:
+
+1. **Phase 확인**
+   - PLAN.md를 보고 현재 Week/Day 확인
+   - 해당 Phase의 체크리스트 읽기
+
+2. **아키텍처**
+   - [ ] Domain은 비즈니스 로직만?
+   - [ ] Application이 Domain만 호출?
+   - [ ] Infrastructure가 구현?
+   - 의존성 방향 확인
+
+3. **코드 품질**
+   - [ ] TypeScript 타입 완벽?
+   - [ ] 함수/클래스 문서화?
+   - [ ] 테스트 필요한가?
+
+4. **Git & 문서**
+   - [ ] 의미있는 커밋 메시지?
+   - [ ] PLAN.md 체크박스 업데이트?
+   - [ ] 주요 변경사항 주석?
+
+## ✅ 코드 작성 기본 규칙
+
+### 이름 규칙
+- 파일: kebab-case (user-service.ts)
+- 클래스/인터페이스: PascalCase (UserService)
+- 함수/변수: camelCase (getUserById)
+- 상수: UPPER_SNAKE_CASE (MAX_USERS)
+
+### 폴더 구조
+```
+src/
+├── domain/{feature}/
+│   ├── entities/
+│   ├── value-objects/
+│   ├── repositories/ (인터페이스)
+│   └── events/
+├── application/{feature}/
+│   ├── use-cases/
+│   ├── dto/
+│   └── ports/
+├── infrastructure/
+│   ├── database/
+│   ├── cache/
+│   └── external-services/
+├── presentation/
+│   ├── api/
+│   └── web/
+└── shared/
+```
+
+### TypeScript 규칙
+- 모든 함수에 타입 지정
+- any 타입 금지
+- Result/Either 패턴 사용 (성공/실패 처리)
+- Interface는 명사로 (User, Repository)
+- Abstract는 Abstract 접두사 (AbstractService)
+
+### 보안
+- [ ] JWT 검증 적용
+- [ ] 입력값 Zod 검증
+- [ ] 환경 변수 사용 (.env.local)
+- [ ] SQL Injection 방지 (Drizzle ORM)
+
+## 🔄 Git 커밋 메시지 규칙
+
+```
+feat: add new feature
+fix: fix bug
+chore: setup or update
+docs: update documentation
+test: add tests
+style: formatting
+refactor: code refactoring
+
+예:
+feat: implement user authentication
+fix: resolve N+1 query in user list
+```
+
+## 📐 아키텍처 예시
+
+### Domain (순수 비즈니스 로직)
+```typescript
+// src/domain/user/User.ts
+export class User {
+  constructor(private id: string, private email: Email) {}
+  
+  static create(id: string, email: Email): Result<User> {
+    if (!email.isValid()) return Result.fail();
+    return Result.ok(new User(id, email));
+  }
+}
+```
+
+### Application (Use Case)
+```typescript
+// src/application/CreateUser.ts
+export class CreateUserUseCase {
+  constructor(private userRepository: UserRepository) {}
+  
+  async execute(input: CreateUserInput): Promise<Result<User>> {
+    const user = User.create(input.id, input.email);
+    if (user.isFailure) return user;
+    
+    await this.userRepository.save(user.getValue());
+    return user;
+  }
+}
+```
+
+### Infrastructure (구현체)
+```typescript
+// src/infrastructure/UserRepositoryImpl.ts
+export class UserRepositoryImpl implements UserRepository {
+  async save(user: User): Promise<void> {
+    // 데이터베이스에 저장
+  }
+}
+```
+
+### Presentation (API)
+```typescript
+// src/presentation/api/users/route.ts
+export async function POST(req: Request) {
+  const body = await req.json();
+  const result = await createUserUseCase.execute(body);
+  
+  if (result.isFailure) {
+    return Response.json({ error: result.error }, { status: 400 });
+  }
+  
+  return Response.json(result.getValue());
+}
+```
+
+## 🧪 테스트 규칙
+
+- Domain 엔티티는 반드시 테스트
+- 비즈니스 규칙은 반드시 테스트
+- Use Case는 모두 테스트
+- 커버리지 목표: Domain > 90%, App > 80%
+
+---
+
+**이 규칙을 지키면서 개발해주세요!**
