@@ -1,101 +1,86 @@
 # 📋 Phase 4 Prompt - 배포 준비
 
-성능과 테스트가 완료되었습니다. 이제 배포를 준비합니다.
+Phase 3 최적화가 완료되었습니다. 이제 프로덕션 배포를 준비합니다.
 
 ## 📋 현재 상태
 - Phase 3 완료: 성능 최적화 & 테스트 ✅
-- 프로덕션 배포 준비 단계
+- MVP 완성 ✅
 
 ## 🎯 Phase 4 작업 (Week 5)
 
-다음 4가지를 진행해주세요:
+**PLAN.md의 Week 5 작업을 순서대로 구현해주세요.**
 
-### 1️⃣ 보안 최종 체크
+### **작업 방식**
 
-**보안 체크리스트**
-- [ ] 모든 API에 인증 있는가?
-- [ ] RBAC 구현되었는가?
-- [ ] RLS 정책이 모든 테이블에 있는가?
-- [ ] 환경 변수가 .env.example에 정의되었는가?
-- [ ] 민감한 정보가 코드에 없는가?
-- [ ] rate limiting 설정?
-- [ ] CORS 정책 설정?
+각 Day 작업마다:
 
-### 2️⃣ Vercel 배포 설정
+1. **PLAN.md 확인** → Week 5 Day {N} 작업 확인
+2. **인프라 설정** → Vercel/GitHub Actions 설정
+3. **문서 업데이트** → README에 배포 가이드 추가
+4. **Git 커밋** → `chore: Week 5 Day {N} - {작업}`
+5. **PLAN.md 체크박스 업데이트**
 
-**필요한 파일**
-- vercel.json
-- 환경 변수 설정 (Vercel 대시보드)
+---
 
-**체크리스트**
-- [ ] Build command 설정
-- [ ] 모든 환경 변수 추가
+## ✅ Week 5 주요 작업 (PLAN.md 참고)
+
+### Day 21-22: Vercel 배포
+- [ ] `vercel.json` 작성
+- [ ] 환경 변수 설정
 - [ ] 프리뷰 배포 테스트
-- [ ] 프로덕션 배포 설정
 
-### 3️⃣ GitHub Actions CI/CD 설정
+**문서 업데이트**:
+- README: "배포 가이드" 섹션 추가
 
-**필수 구성**
-- 타입 체크 (`tsc --noEmit`)
-- Linting (`eslint`)
-- 단위 테스트 (`vitest`)
-- 통합 테스트 (`vitest`)
-- 빌드 (`next build`)
+---
 
-**파일**: `.github/workflows/ci.yml`
+### Day 22-23: GitHub Actions CI/CD
+- [ ] `.github/workflows/ci.yml` 작성
+- [ ] PR 체크 자동화
+- [ ] 자동 배포 설정
 
-체크리스트:
-- [ ] PR 생성 시 CI 자동 실행
-- [ ] Main 브랜치 푸시 시 배포 자동 실행
-- [ ] 모든 테스트 통과 후 배포
+**문서 업데이트**:
+- 새 파일: `docs/phases/phase-4-cicd.md` (CI/CD 가이드)
 
-### 4️⃣ 기본 모니터링 설정
+---
 
-**Sentry 에러 추적**
-- DSN 설정
-- 기본 에러 캡처
-- 환경 구분 (dev, staging, production)
+### Day 24: 모니터링 설정
+- [ ] Sentry 초기화
+- [ ] 에러 캡처 테스트
+- [ ] 알림 설정
 
-**체크리스트**
-- [ ] Sentry DSN 환경 변수 추가
-- [ ] 에러 캡처 초기화
-- [ ] 민감한 정보 필터링
+**문서 업데이트**:
+- 새 파일: `docs/phases/phase-4-monitoring.md` (모니터링 가이드)
 
-## 📝 vercel.json 예시
+---
 
-```json
-{
-  "buildCommand": "pnpm build",
-  "devCommand": "pnpm dev",
-  "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "regions": ["icn1"],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key",
-    "DATABASE_URL": "@database-url"
-  }
-}
-```
+### Day 25: 최종 배포
+- [ ] E2E 테스트
+- [ ] 보안 최종 체크
+- [ ] 프로덕션 배포
 
-## 🔗 참고
+**문서 업데이트**:
+- README: "프로덕션 URL" 추가
+- PRD: "런치 날짜" 업데이트
 
-- `docs/RULES.md` - 상세 규칙
-- `docs/checklists/PHASE4_CHECKLIST.md` - Phase 4 체크리스트
+---
 
 ## ✔️ Phase 4 완료 기준
 
-- [ ] 보안 최종 체크 완료
-- [ ] Vercel 배포 설정 완료
-- [ ] GitHub Actions CI/CD 설정 완료
-- [ ] Sentry 기본 설정 완료
-- [ ] 프리뷰 배포 성공
-- [ ] GitHub 푸시 완료
+- [ ] PLAN.md의 모든 Week 5 작업 완료
+- [ ] Vercel 프로덕션 배포 성공
+- [ ] CI/CD 파이프라인 작동
+- [ ] Sentry 에러 수집 확인
+- [ ] README 배포 가이드 작성
+- [ ] Git 커밋 완료
 
 ---
 
 **완료되면 다음 메시지를 보내세요:**
 
-"Phase 4 완료했습니다. 배포 준비가 완료되었습니다."
+"Phase 4 완료했습니다.
+- 프로덕션 URL: {URL}
+- CI/CD: GitHub Actions ✅
+- 모니터링: Sentry ✅
 
-그럼 Phase 5 (운영 최적화) 가이드를 드리겠습니다.
+이제 Phase 5 (운영)을 시작할 준비가 되었습니다."
