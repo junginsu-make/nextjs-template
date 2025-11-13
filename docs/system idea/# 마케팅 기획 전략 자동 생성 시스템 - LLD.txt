@@ -1,0 +1,608 @@
+# 마케팅 기획 전략 자동 생성 시스템 - LLD
+
+## 1. 시스템 아키텍처 개요
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Client Layer (React)                      │
+│  ┌──────────────┬──────────────┬──────────────────────────┐ │
+│  │ Dashboard    │ Project Mgmt │ Document Editor          │ │
+│  │ (시각화)    │ (프로젝트)   │ (마크다운 에디터)        │ │
+│  └──────────────┴──────────────┴──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                            ↓ (REST API / WebSocket)
+┌─────────────────────────────────────────────────────────────┐
+│                   API Gateway Layer (Express.js)             │
+│  ┌──────────────────────────────────────────────────────────┐│
+│  │ Authentication | Rate Limiting | Request Validation      ││
+│  └──────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Business Logic Layer                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ Web Crawler  │  │ Data Analysis│  │ Strategy Gen │      │
+│  │ Module       │  │ Module       │  │ Module       │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────────────────────────────────────────────────┐│
+│  │ Task Queue (Bull - Redis 기반)                          ││
+│  │ - 비동기 작업 처리                                       ││
+│  │ - 크롤링 스케줄링                                       ││
+│  └──────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Data Layer                                  │
+│  ┌──────────────┬──────────────┬──────────────────────────┐ │
+│  │ MongoDB      │ Redis        │ File Storage             │ │
+│  │ (주 DB)     │ (캐시/Queue) │ (문서 저장)             │ │
+│  └──────────────┴──────────────┴──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   External Services                           │
+│  ┌──────────────┬──────────────┬──────────────────────────┐ │
+│  │ Search APIs  │ AI APIs      │ Analytics Services      │ │
+│  │ (Google,     │ (ChatGPT,    │ (Sentiment Analysis)    │ │
+│  │ Naver, etc)  │ Claude, etc) │                         │ │
+│  └──────────────┴──────────────┴──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. 데이터베이스 설계
+
+### 2.1 MongoDB Collections
+
+#### users
+```javascript
+{
+  _id: ObjectId,
+  username: String,
+  email: String,
+  passwordHash: String,
+  role: Enum ['admin', 'user', 'viewer'],
+  createdAt: Date,
+  updatedAt: Date,
+  preferences: {
+    defaultLanguage: String,
+    theme: String,
+    notifications: Boolean
+  }
+}
+```
+
+#### projects
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (ref: users),
+  projectName: String,
+  description: String,
+  targetAudience: {
+    industry: String,
+    productCategory: String,
+    region: String,
+    demographics: Object
+  },
+  keywords: [String],
+  status: Enum ['draft', 'in_progress', 'completed', 'archived'],
+  createdAt: Date,
+  updatedAt: Date,
+  config: {
+    dataSourcePreferences: [String], // ['news', 'blogs', 'social', 'competitor']
+    crawlFrequency: String, // 'daily', 'weekly', 'manual'
+    analysisDepth: String // 'basic', 'standard', 'advanced'
+  }
+}
+```
+
+#### crawled_data
+```javascript
+{
+  _id: ObjectId,
+  projectId: ObjectId (ref: projects),
+  source: String, // 'google_news', 'naver_blog', 'social_media', etc
+  sourceUrl: String,
+  title: String,
+  content: String,
+  author: String,
+  publishedAt: Date,
+  crawledAt: Date,
+  tags: [String],
+  sentiment: { score: Number, label: String }, // 'positive', 'neutral', 'negative'
+  relevanceScore: Number, // 0-1
+  metadata: {
+    domain: String,
+    imageUrl: String,
+    engagement: { views: Number, likes: Number, shares: Number }
+  }
+}
+```
+
+#### analysis_results
+```javascript
+{
+  _id: ObjectId,
+  projectId: ObjectId (ref: projects),
+  analysisType: String, // 'market_analysis', 'sentiment_analysis', 'trend_analysis'
+  resultData: Object,
+  keyInsights: [String],
+  confidence: Number, // 0-1
+  analyzedAt: Date,
+  status: String // 'pending', 'completed', 'failed'
+}
+```
+
+#### marketing_strategies
+```javascript
+{
+  _id: ObjectId,
+  projectId: ObjectId (ref: projects),
+  version: Number,
+  strategyType: String, // 'comprehensive', 'channel_focused', 'campaign_based'
+  content: {
+    executiveSummary: String,
+    marketAnalysis: Object,
+    targetAudience: Object,
+    positioning: String,
+    channels: [Object], // marketing channels
+    tactics: [Object], // specific tactics
+    timeline: Object,
+    kpis: [Object],
+    budget: Object
+  },
+  generatedAt: Date,
+  approvedAt: Date,
+  approvedBy: ObjectId (ref: users),
+  status: Enum ['draft', 'approved', 'executed', 'archived']
+}
+```
+
+#### documents
+```javascript
+{
+  _id: ObjectId,
+  projectId: ObjectId (ref: projects),
+  strategyId: ObjectId (ref: marketing_strategies),
+  documentType: String, // 'pdf', 'markdown', 'html'
+  title: String,
+  content: String,
+  format: String, // 'markdown', 'html'
+  generatedAt: Date,
+  fileUrl: String,
+  metadata: {
+    pageCount: Number,
+    wordCount: Number,
+    sections: [String]
+  }
+}
+```
+
+#### audit_logs
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (ref: users),
+  projectId: ObjectId (ref: projects),
+  action: String, // 'create_project', 'run_analysis', 'generate_strategy', etc
+  details: Object,
+  timestamp: Date,
+  ipAddress: String,
+  userAgent: String
+}
+```
+
+---
+
+## 3. API 엔드포인트 명세
+
+### 3.1 Authentication 엔드포인트
+```
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /api/v1/auth/profile
+```
+
+### 3.2 Project Management 엔드포인트
+```
+GET    /api/v1/projects              # 사용자의 모든 프로젝트 조회
+POST   /api/v1/projects              # 새 프로젝트 생성
+GET    /api/v1/projects/:id          # 특정 프로젝트 상세 조회
+PUT    /api/v1/projects/:id          # 프로젝트 수정
+DELETE /api/v1/projects/:id          # 프로젝트 삭제
+POST   /api/v1/projects/:id/clone    # 프로젝트 복제
+```
+
+### 3.3 Web Crawling 엔드포인트
+```
+POST   /api/v1/projects/:id/crawl          # 크롤링 작업 시작
+GET    /api/v1/projects/:id/crawl/status   # 크롤링 상태 조회
+GET    /api/v1/projects/:id/crawled-data   # 수집된 데이터 조회
+DELETE /api/v1/projects/:id/crawled-data   # 크롤링 데이터 삭제
+POST   /api/v1/projects/:id/crawl/schedule # 정기 크롤링 설정
+```
+
+### 3.4 Analysis 엔드포인트
+```
+POST   /api/v1/projects/:id/analysis              # 분석 작업 시작
+GET    /api/v1/projects/:id/analysis/status       # 분석 상태 조회
+GET    /api/v1/projects/:id/analysis/:analysisId  # 분석 결과 조회
+POST   /api/v1/projects/:id/analysis/sentiment    # 감정분석
+POST   /api/v1/projects/:id/analysis/trends       # 트렌드 분석
+```
+
+### 3.5 Strategy Generation 엔드포인트
+```
+POST   /api/v1/projects/:id/strategy              # 마케팅 전략 생성
+GET    /api/v1/projects/:id/strategy              # 생성된 전략 조회
+PUT    /api/v1/projects/:id/strategy/:strategyId  # 전략 수정
+DELETE /api/v1/projects/:id/strategy/:strategyId  # 전략 삭제
+GET    /api/v1/projects/:id/strategy/versions     # 전략 버전 목록
+POST   /api/v1/projects/:id/strategy/:strategyId/approve # 전략 승인
+```
+
+### 3.6 Document Generation 엔드포인트
+```
+POST   /api/v1/projects/:id/documents           # 문서 생성
+GET    /api/v1/projects/:id/documents           # 문서 목록 조회
+GET    /api/v1/projects/:id/documents/:docId    # 문서 상세 조회
+PUT    /api/v1/projects/:id/documents/:docId    # 문서 수정
+DELETE /api/v1/projects/:id/documents/:docId    # 문서 삭제
+GET    /api/v1/projects/:id/documents/:docId/export # 문서 다운로드
+POST   /api/v1/projects/:id/documents/:docId/publish # 문서 발행
+```
+
+### 3.7 WebSocket Events (Real-time)
+```
+# Client to Server
+socket.emit('join_project', { projectId })
+socket.emit('start_crawl', { projectId, sources })
+socket.emit('start_analysis', { projectId })
+
+# Server to Client
+socket.on('crawl_progress', { percentage, status })
+socket.on('analysis_progress', { percentage, status })
+socket.on('strategy_generated', { strategyId, preview })
+socket.on('document_ready', { documentId, downloadUrl })
+socket.on('error', { message })
+```
+
+---
+
+## 4. 핵심 모듈 상세 설계
+
+### 4.1 Web Crawling Module
+```
+WebCrawlerService
+├── Crawlers
+│   ├── GoogleNewsCrawler
+│   ├── NaverBlogCrawler
+│   ├── TwitterCrawler
+│   ├── LinkedInCrawler
+│   └── CustomWebCrawler
+├── RobotRespect
+│   ├── robots.txt parser
+│   └── Rate limiter
+├── DataProcessor
+│   ├── HTML parser
+│   ├── Text extractor
+│   └── Metadata extraction
+└── Storage
+    └── MongoDB insert
+
+주요 기능:
+- 다중 소스 크롤링 (병렬 처리)
+- robots.txt 준수
+- User-Agent 로테이션
+- 프록시 지원
+- 재시도 로직 (Exponential backoff)
+- 타임아웃 처리
+```
+
+### 4.2 Data Analysis Module
+```
+DataAnalysisService
+├── NLPProcessor (자연어 처리)
+│   ├── TokenizationService
+│   ├── EntityExtraction
+│   └── KeywordExtraction
+├── SentimentAnalyzer
+│   ├── Korean sentiment model
+│   └── Score calculation
+├── TrendAnalyzer
+│   ├── Frequency analysis
+│   ├── Time series analysis
+│   └── Pattern detection
+└── CompetitorAnalyzer
+    ├── Data comparison
+    └── Competitive insight
+
+주요 기능:
+- 텍스트 정규화
+- 중복 제거
+- 감정 분석 (양수/중립/음수)
+- 키워드 추출
+- 트렌드 감지
+- 경쟁사 분석
+```
+
+### 4.3 Strategy Generation Module
+```
+StrategyGenerationService
+├── AIIntegration
+│   ├── ChatGPT API
+│   ├── Claude API
+│   └── Prompt management
+├── StrategyBuilder
+│   ├── Market analysis generation
+│   ├── Target audience generation
+│   ├── Channel recommendation
+│   └── Tactic generation
+├── DocumentGenerator
+│   ├── Markdown generator
+│   ├── PDF exporter
+│   └── HTML converter
+└── QualityAssurance
+    ├── Content validation
+    └── Consistency check
+
+주요 기능:
+- AI 기반 텍스트 생성
+- 프롬프트 최적화
+- 템플릿 기반 생성
+- 출력 검증
+- 문서 포맷 변환
+```
+
+### 4.4 Task Queue Module (Bull + Redis)
+```
+TaskQueueService
+├── JobDefinitions
+│   ├── CrawlJob
+│   ├── AnalysisJob
+│   ├── StrategyGenerationJob
+│   └── DocumentGenerationJob
+├── JobProcessor
+│   ├── Error handling
+│   ├── Retry logic
+│   └── Progress tracking
+└── Scheduler
+    ├── Cron jobs
+    └── Event-driven jobs
+
+특징:
+- 비동기 작업 처리
+- 재시도 자동화
+- 우선순위 관리
+- 작업 상태 추적
+- 분산 처리 지원
+```
+
+---
+
+## 5. 프론트엔드 컴포넌트 구조
+
+```
+src/
+├── components/
+│   ├── layout/
+│   │   ├── Header.jsx
+│   │   ├── Sidebar.jsx
+│   │   └── MainLayout.jsx
+│   ├── projects/
+│   │   ├── ProjectList.jsx
+│   │   ├── ProjectCard.jsx
+│   │   ├── ProjectForm.jsx
+│   │   └── ProjectDetail.jsx
+│   ├── crawler/
+│   │   ├── CrawlControl.jsx
+│   │   ├── SourceSelector.jsx
+│   │   ├── CrawlProgress.jsx
+│   │   └── CrawledDataTable.jsx
+│   ├── analysis/
+│   │   ├── AnalysisControl.jsx
+│   │   ├── SentimentChart.jsx
+│   │   ├── TrendChart.jsx
+│   │   └── AnalysisResults.jsx
+│   ├── strategy/
+│   │   ├── StrategyView.jsx
+│   │   ├── StrategyEditor.jsx
+│   │   ├── StrategyVersions.jsx
+│   │   └── StrategyPreview.jsx
+│   └── documents/
+│       ├── DocumentEditor.jsx
+│       ├── DocumentPreview.jsx
+│       └── DocumentExport.jsx
+├── pages/
+│   ├── Dashboard.jsx
+│   ├── ProjectsPage.jsx
+│   ├── ProjectDetailPage.jsx
+│   ├── SettingsPage.jsx
+│   └── NotFoundPage.jsx
+├── services/
+│   ├── apiService.js
+│   ├── wsService.js (WebSocket)
+│   └── storageService.js
+├── store/
+│   ├── projectSlice.js
+│   ├── authSlice.js
+│   ├── uiSlice.js
+│   └── store.js
+├── hooks/
+│   ├── useProjects.js
+│   ├── useCrawl.js
+│   ├── useAnalysis.js
+│   └── useWebSocket.js
+├── utils/
+│   ├── formatters.js
+│   ├── validators.js
+│   └── constants.js
+└── styles/
+    ├── globals.css
+    └── variables.css
+```
+
+---
+
+## 6. 백엔드 디렉토리 구조
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   ├── database.js
+│   │   ├── redis.js
+│   │   ├── env.js
+│   │   └── constants.js
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   ├── errorHandler.js
+│   │   ├── requestLogger.js
+│   │   └── validation.js
+│   ├── routes/
+│   │   ├── auth.routes.js
+│   │   ├── projects.routes.js
+│   │   ├── crawl.routes.js
+│   │   ├── analysis.routes.js
+│   │   ├── strategy.routes.js
+│   │   └── documents.routes.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── projectController.js
+│   │   ├── crawlController.js
+│   │   ├── analysisController.js
+│   │   ├── strategyController.js
+│   │   └── documentController.js
+│   ├── services/
+│   │   ├── UserService.js
+│   │   ├── ProjectService.js
+│   │   ├── WebCrawlerService.js
+│   │   ├── DataAnalysisService.js
+│   │   ├── StrategyGenerationService.js
+│   │   ├── DocumentGenerationService.js
+│   │   └── ExternalAPIService.js
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Project.js
+│   │   ├── CrawledData.js
+│   │   ├── AnalysisResult.js
+│   │   ├── MarketingStrategy.js
+│   │   ├── Document.js
+│   │   └── AuditLog.js
+│   ├── jobs/
+│   │   ├── crawlJob.js
+│   │   ├── analysisJob.js
+│   │   ├── strategyGenerationJob.js
+│   │   └── documentGenerationJob.js
+│   ├── utils/
+│   │   ├── logger.js
+│   │   ├── validators.js
+│   │   ├── helpers.js
+│   │   └── errorHandler.js
+│   ├── tests/
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── e2e/
+│   └── app.js
+├── .env.example
+├── package.json
+└── docker-compose.yml
+```
+
+---
+
+## 7. 보안 설계
+
+### 7.1 인증 & 인가
+- JWT 토큰 기반 인증
+- Refresh Token 로테이션
+- Role-Based Access Control (RBAC)
+- 세션 관리
+
+### 7.2 데이터 보안
+- 비밀번호 해싱 (bcrypt)
+- 민감 정보 암호화
+- API Key 관리
+- 환경변수로 시크릿 관리
+
+### 7.3 통신 보안
+- HTTPS/TLS
+- CORS 설정
+- CSP (Content Security Policy)
+- Rate Limiting
+
+### 7.4 접근 제어
+- API Rate Limiting (사용자당, IP당)
+- 감사 로그 (Audit Log)
+- 권한 검증 (미들웨어)
+
+---
+
+## 8. 성능 최적화
+
+### 8.1 백엔드 최적화
+- 데이터베이스 인덱싱
+- 쿼리 최적화
+- 캐싱 전략 (Redis)
+- 비동기 작업 처리
+- 크롤링 병렬화
+
+### 8.2 프론트엔드 최적화
+- Code Splitting
+- Lazy Loading
+- 번들 최적화
+- 이미지 최적화
+- 상태 관리 최적화
+
+### 8.3 인프라 최적화
+- Load Balancing
+- 수평 확장
+- CDN 활용
+- 컨테이너화 (Docker)
+
+---
+
+## 9. 모니터링 & 로깅
+
+### 9.1 로깅
+- Winston logger 사용
+- 구조화된 로깅
+- 로그 레벨 (debug, info, warn, error)
+- 감사 로그 (사용자 액션)
+
+### 9.2 모니터링
+- APM (Application Performance Monitoring)
+- 에러 트래킹
+- 성능 메트릭
+- 가용성 모니터링
+
+---
+
+## 10. 배포 & 운영
+
+### 10.1 Docker & Kubernetes
+```dockerfile
+# Dockerfile - Backend
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+EXPOSE 5000
+CMD ["npm", "start"]
+```
+
+### 10.2 CI/CD Pipeline
+- GitHub Actions / GitLab CI
+- 자동 테스트
+- 자동 빌드
+- 자동 배포
+
+### 10.3 환경 관리
+- Development
+- Staging
+- Production
