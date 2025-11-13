@@ -1,78 +1,105 @@
-# PRD: {프로젝트명} (간소화 버전)
+# LLD: {프로젝트명} (간소화 버전)
 
 > **⚠️ 주의**: 이 문서는 초기 버전입니다. 각 Phase 진행하면서 상세 내용을 추가합니다.
 
 ---
 
-## 1. 프로젝트 개요 (3-4문장)
+## 1. 시스템 아키텍처 (다이어그램)
+```
+사용자 
+  ↓
+[시스템] 
+  ↓
+  ├→ Supabase (Auth, DB, Storage)
+  ├→ Vercel (Hosting)
+  └→ Redis (Cache)
+```
 
-**Problem**: {사용자가 겪는 문제 2-3문장}
-
-**Solution**: {이 프로젝트의 해결책 2-3문장}
-
-**Impact**: {예상 비즈니스 가치 1-2문장}
-
----
-
-## 2. 타겟 사용자
-
-| 구분 | 설명 | 니즈 |
-|------|------|------|
-| Primary | {주요 사용자} | {해결하려는 문제} |
-| Secondary | {부수 사용자} | {니즈} |
-
----
-
-## 3. 핵심 기능 (간단히)
-
-| 기능 | 설명 (1문장) | 우선순위 |
-|------|-------------|----------|
-| {기능 1} | {무엇을 하는가} | P0 (Must) |
-| {기능 2} | {무엇을 하는가} | P0 (Must) |
-| {기능 3} | {무엇을 하는가} | P1 (Should) |
-| {기능 4} | {무엇을 하는가} | P2 (Could) |
-
-**Won't Have**: {이번에 제외된 기능}
-
-> 📝 **상세 기능 명세**: 각 Phase에서 `phase-N-detail.md`에 작성됩니다.
+**헥사고날 아키텍처**:
+```
+Presentation → Application → Domain ← Infrastructure
+```
 
 ---
 
-## 4. 성공 지표 (KPI)
+## 2. 기술 스택
 
-- **North Star**: {핵심 지표} (예: DAU 10,000명)
-- **Acquisition**: {획득 지표}
-- **Retention**: {유지율}
-- **Performance**: 응답시간 p95 < 200ms
-
----
-
-## 5. 비기능 요구사항 (요약)
-
-| 항목 | 목표 |
+| 계층 | 기술 |
 |------|------|
-| 성능 | p95 < 200ms |
-| 가용성 | 99.9% |
-| 보안 | JWT + RBAC + RLS |
-| 확장성 | Vercel Auto-scaling |
+| Frontend | Next.js 14+, TypeScript, Tailwind |
+| Backend | Next.js API Routes |
+| Database | PostgreSQL (Supabase) |
+| ORM | Drizzle ORM |
+| Auth | Supabase Auth |
+| Hosting | Vercel |
+| Monitoring | Sentry |
 
 ---
 
-## 6. 일정 및 리스크
+## 3. 데이터베이스 (ERD 개요)
+```
+users (Supabase Auth)
+  ↓ 1:1
+profiles
+  ↓ 1:N
+{주요 리소스}
+  ↓ 1:N
+{관계 리소스}
+```
 
-**일정**: Week 1-5 (상세는 PLAN.md 참조)
+> 📝 **상세 스키마**: Phase 2에서 `phase-2-detail.md`에 작성됩니다.
 
-**주요 리스크**:
-- {리스크 1}: {완화 전략}
-- {리스크 2}: {완화 전략}
+---
+
+## 4. 주요 컴포넌트 (간단히)
+
+| 컴포넌트 | 역할 (1문장) |
+|----------|-------------|
+| Domain/{Feature} | 비즈니스 로직 |
+| Application/{Feature} | Use Cases |
+| Infrastructure/Database | DB 접근 |
+| Presentation/API | REST API |
+
+---
+
+## 5. API 엔드포인트 (개요)
+```
+POST   /api/auth/signup
+POST   /api/auth/login
+GET    /api/{resource}
+POST   /api/{resource}
+PATCH  /api/{resource}/:id
+DELETE /api/{resource}/:id
+```
+
+> 📝 **상세 API 명세**: 각 Phase에서 점진적으로 추가됩니다.
+
+---
+
+## 6. 보안 전략 (요약)
+
+- **인증**: JWT via Supabase
+- **권한**: RBAC
+- **DB 보안**: RLS 정책
+- **통신**: HTTPS (TLS 1.3)
+- **입력 검증**: Zod
+
+---
+
+## 7. 성능 전략 (요약)
+
+- **캐싱**: Redis (1시간 TTL)
+- **DB 인덱스**: 주요 조회 칼럼
+- **N+1 방지**: Drizzle `with()`
+- **번들 최적화**: Code splitting
 
 ---
 
 ## 📌 다음 단계
 
-- PLAN.md의 각 Phase 진행하면서 이 문서를 업데이트합니다
-- 상세 기능 명세는 `docs/phases/phase-N-detail.md`에 작성됩니다
-- 변경 이력은 Git commit으로 관리됩니다
+- Phase별로 구체적인 설계를 `phase-N-detail.md`에 추가
+- 코드 구현하면서 실제 구현 내용을 이 문서에 반영
+- API 명세, DB 스키마는 점진적으로 확장
 
 ---
 
